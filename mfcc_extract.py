@@ -1,47 +1,42 @@
-#extract mfcc features from the audio files from the recordings folder and output to the features folder
-
+# mfcc_extract.py
 import os
 import numpy as np
 import librosa
-import librosa.display
-import matplotlib.pyplot as plt
 import warnings
 
 warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
-def extract_mfcc_features(audio_file):
-    y, sr = librosa.load(audio_file)
-    mfcc = librosa.feature.mfcc(y=y, sr=sr)
-    return mfcc
+# Configuration
+recordings_folder = "recordings"   # put your .m4a/.wav files here
+features_folder = "features"
+n_mfcc = 20
 
+os.makedirs(features_folder, exist_ok=True)
+os.makedirs(recordings_folder, exist_ok=True)
 
-recordings_folder = 'recordingss'
+def extract_mfcc_features(audio_path, n_mfcc=n_mfcc):
+    y, sr = librosa.load(audio_path, sr=None)  # preserve native sr
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
+    # Row-wise average like your original pipeline
+    mfcc_avg = np.mean(mfcc, axis=1)  # shape (n_mfcc,)
+    return mfcc_avg
 
-features_folder = 'features'
+def main():
+    files = [f for f in os.listdir(recordings_folder) if f.lower().endswith(('.wav', '.m4a', '.mp3', '.flac'))]
+    if not files:
+        print("No audio files found in", recordings_folder)
+        return
+    for filename in files:
+        src = os.path.join(recordings_folder, filename)
+        try:
+            mfcc_avg = extract_mfcc_features(src)
+            outname = os.path.splitext(filename)[0] + ".npy"
+            outpath = os.path.join(features_folder, outname)
+            np.save(outpath, mfcc_avg)
+            print("Saved MFCC:", outpath)
+        except Exception as e:
+            print("Failed to process", filename, "->", e)
 
-if not os.path.exists(features_folder):
-    os.makedirs(features_folder)
-
-for audio_file in os.listdir(recordings_folder):
-    if not audio_file.endswith('.m4a'):
-        continue
-    # Extract the MFCC features
-    mfcc = extract_mfcc_features(os.path.join(recordings_folder, audio_file))
-    # Save the MFCC features to a file
-    np.save(os.path.join(features_folder, audio_file.replace('.wav', '.npy')), mfcc)
-
-    # Plot the MFCC features
-    plt.figure()
-    librosa.display.specshow(mfcc, x_axis='time')
-    plt.colorbar()
-    plt.title('MFCC')
-    plt.tight_layout()
-    plt.show()
-#print numpoy array features from the features folder
-for feature_file in os.listdir(features_folder):
-    if not feature_file.endswith('.npy'):
-        continue
-    mfcc = np.load(os.path.join(features_folder, feature_file))
-    # print(mfcc)
-    # print(mfcc.shape)
+if __name__ == "__main__":
+    main()
